@@ -1,5 +1,4 @@
 ﻿using Cvc.Crm.Operation;
-using Cvv.Crm.Operation;
 using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Client;

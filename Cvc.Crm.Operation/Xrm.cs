@@ -10,7 +10,7 @@
 
 [assembly: Microsoft.Xrm.Sdk.Client.ProxyTypesAssemblyAttribute()]
 
-namespace Xrm
+namespace Cvc.Crm.Operation
 {
 	
 	
@@ -727,14 +727,14 @@ namespace Xrm
 		/// Status of the system job.
 		/// </summary>
 		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("statecode")]
-		public System.Nullable<Xrm.AsyncOperationState> StateCode
+		public System.Nullable<AsyncOperationState> StateCode
 		{
 			get
 			{
 				Microsoft.Xrm.Sdk.OptionSetValue optionSet = this.GetAttributeValue<Microsoft.Xrm.Sdk.OptionSetValue>("statecode");
 				if ((optionSet != null))
 				{
-					return ((Xrm.AsyncOperationState)(System.Enum.ToObject(typeof(Xrm.AsyncOperationState), optionSet.Value)));
+					return ((AsyncOperationState)(System.Enum.ToObject(typeof(AsyncOperationState), optionSet.Value)));
 				}
 				else
 				{
@@ -1705,33 +1705,33 @@ namespace Xrm
 		/// <summary>
 		/// Gets a binding to the set of all <see cref="Xrm.AsyncOperation"/> entities.
 		/// </summary>
-		public System.Linq.IQueryable<Xrm.AsyncOperation> AsyncOperationSet
+		public System.Linq.IQueryable<AsyncOperation> AsyncOperationSet
 		{
 			get
 			{
-				return this.CreateQuery<Xrm.AsyncOperation>();
+				return this.CreateQuery<AsyncOperation>();
 			}
 		}
 		
 		/// <summary>
 		/// Gets a binding to the set of all <see cref="Xrm.ImportJob"/> entities.
 		/// </summary>
-		public System.Linq.IQueryable<Xrm.ImportJob> ImportJobSet
+		public System.Linq.IQueryable<ImportJob> ImportJobSet
 		{
 			get
 			{
-				return this.CreateQuery<Xrm.ImportJob>();
+				return this.CreateQuery<ImportJob>();
 			}
 		}
 		
 		/// <summary>
 		/// Gets a binding to the set of all <see cref="Xrm.Solution"/> entities.
 		/// </summary>
-		public System.Linq.IQueryable<Xrm.Solution> SolutionSet
+		public System.Linq.IQueryable<Solution> SolutionSet
 		{
 			get
 			{
-				return this.CreateQuery<Xrm.Solution>();
+				return this.CreateQuery<Solution>();
 			}
 		}
 	}

@@ -8,7 +8,7 @@
 // Created via this command line: "C:\Users\cciftci\AppData\Roaming\MscrmTools\XrmToolBox\Plugins\CrmSvcUtil Ref\crmsvcutil.exe" /url:"https://dsk365merge.veripark.com:444/dsk365merge" /namespace:"Xrm" /out:"C:\Users\cciftci\Desktop\Xrm\OptionSets.cs" /codecustomization:"DLaB.CrmSvcUtilExtensions.OptionSet.CreateOptionSetEnums,DLaB.CrmSvcUtilExtensions" /codegenerationservice:"DLaB.CrmSvcUtilExtensions.OptionSet.CustomCodeGenerationService,DLaB.CrmSvcUtilExtensions" /codewriterfilter:"DLaB.CrmSvcUtilExtensions.OptionSet.CodeWriterFilterService,DLaB.CrmSvcUtilExtensions" /namingservice:"DLaB.CrmSvcUtilExtensions.NamingService,DLaB.CrmSvcUtilExtensions" /metadataproviderservice:"DLaB.CrmSvcUtilExtensions.BaseMetadataProviderService,DLaB.CrmSvcUtilExtensions" /username:".\cciftci" /password:"*******" /domain:"." 
 //------------------------------------------------------------------------------
 
-namespace Xrm
+namespace Cvc.Crm.Operation
 {
     [System.Runtime.Serialization.DataContractAttribute()]
     [System.CodeDom.Compiler.GeneratedCodeAttribute("CrmSvcUtil", "9.0.0.9154")]

@@ -11,9 +11,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 using System.Xml;
-using Xrm;
 
-namespace Cvv.Crm.Operation
+namespace Cvc.Crm.Operation
 {
     public static class SolutionTransfer
     {
