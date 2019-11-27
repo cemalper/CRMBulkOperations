@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>$id$</id>
+    <version>1</version>
+    <title>Crm Bulk Operations</title>
+    <authors>Cem ÇİFTCİ</authors>
+    <owners>Cem ÇİFTCİ</owners>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/cemalper/CRMBulkOperations</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Crm Bulk Operations</description>
+    <releaseNotes></releaseNotes>
+    <copyright>Copyright 2019</copyright>
+    <tags>Dynamic Crm Bulk Operations</tags>
+  </metadata>
+</package>
