@@ -8,11 +8,13 @@ namespace Cvc.Crm.Operation.Events
     {
         public List<RequestContainer<TOrganizationRequest, TOrganizationResponse>> RequestsContainers { get; }
         public TimeSpan ElapsedTime { get; }
+        public double AverageRequestCount { get; }
 
-        public CompletedEventArgs(List<RequestContainer<TOrganizationRequest, TOrganizationResponse>> requestsContainers, TimeSpan elapsedTime)
+        public CompletedEventArgs(List<RequestContainer<TOrganizationRequest, TOrganizationResponse>> requestsContainers, TimeSpan elapsedTime, double averageRequestCount)
         {
             RequestsContainers = requestsContainers;
             ElapsedTime = elapsedTime;
+            AverageRequestCount = averageRequestCount;
         }
     }
 }

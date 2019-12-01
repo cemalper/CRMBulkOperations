@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Cvc.Crm.Operation
 {
@@ -22,9 +23,6 @@ namespace Cvc.Crm.Operation
         private readonly RequestOptions _requestOptions;
         private readonly Thread[] _tasks;
 
-        private Thread _statisticThread;
-        private readonly Stopwatch _stopWatch;
-
         private readonly object _takeAndRemoveLockObject = new object();
         private readonly object _chuckCompletedEventKey = new object();
         private readonly object _completedEventKey = new object();
@@ -33,14 +31,24 @@ namespace Cvc.Crm.Operation
         private readonly object _errorOccuredEventKey = new object();
         private readonly object _statisticEventKey = new object();
         private readonly EventHandlerList _eventHandlerList = new EventHandlerList();
-
+        private readonly System.Timers.Timer _statisticTimer = new System.Timers.Timer();
+        private readonly Stopwatch _executionSw = new Stopwatch();
         #endregion Private Variables
-
-        #region Public Variables
 
         public List<RequestContainer<TOrganizatioRequest, TOrganizationResponse>> FailedRequests { get; private set; }
 
-        #endregion Public Variables
+        public CrmBulkRequestExecutor(List<TOrganizatioRequest> requests, Func<OrganizationServiceProxy> serviceCreator, RequestOptions requestOptions = null)
+        {
+            //ServicePointManager.DefaultConnectionLimit = 5000;
+            //ServicePointManager.MaxServicePointIdleTime = 5000;
+            _requestOptions = requestOptions ?? new RequestOptions();
+            _requests = new ConcurrentBag<RequestContainer<TOrganizatioRequest, TOrganizationResponse>>(requests.Select(x => new RequestContainer<TOrganizatioRequest, TOrganizationResponse>(x, _requestOptions.RetryCount)));
+            _serviceCreator = serviceCreator;
+            _tasks = new Thread[_requestOptions.ParalelSize];
+            FailedRequests = new List<RequestContainer<TOrganizatioRequest, TOrganizationResponse>>();
+            _statisticTimer.Interval = requestOptions.StatisticInverval;
+            _statisticTimer.Elapsed += (sender, even) => CalculateStatistic();
+        }
 
         #region Events
 
@@ -154,50 +162,38 @@ namespace Cvc.Crm.Operation
 
         #endregion Events
 
-        public CrmBulkRequestExecutor(List<TOrganizatioRequest> requests, Func<OrganizationServiceProxy> serviceCreator, RequestOptions requestOptions = null)
+        public Task Execute(CancellationToken cancellationToken = default(CancellationToken))
         {
-            //ServicePointManager.DefaultConnectionLimit = 5000;
-            //ServicePointManager.MaxServicePointIdleTime = 5000;
-            _requestOptions = requestOptions ?? new RequestOptions();
-            _requests = new ConcurrentBag<RequestContainer<TOrganizatioRequest, TOrganizationResponse>>(requests.Select(x => new RequestContainer<TOrganizatioRequest, TOrganizationResponse>(x, _requestOptions.RetryCount)));
-            _serviceCreator = serviceCreator;
-            _tasks = new Thread[_requestOptions.ParalelSize];
-            _stopWatch = new Stopwatch();
-            _stopWatch.Start();
-            FailedRequests = new List<RequestContainer<TOrganizatioRequest, TOrganizationResponse>>();
+            return Task.Run(() =>
+            {
+                InternalExecute(cancellationToken);
+            }, cancellationToken);
         }
 
-        public void Execute(CancellationToken cancellationToken = default(CancellationToken))
+        private void InternalExecute(CancellationToken cancellationToken = default(CancellationToken))
         {
-            var stopWatch = new Stopwatch();
-            stopWatch.Start();
-
+            _executionSw.Restart();
+            _statisticTimer.Start();
             for (int i = 0; i < _requestOptions.ParalelSize; i++)
             {
                 var threadIndex = i;
-                //_tasks[i] = Task.Run(() => ExecuteRequests(_serviceCreator, cancellationToken));
                 _tasks[i] = new Thread(() => ExecuteRequests(_serviceCreator, cancellationToken))
                 {
                     Name = threadIndex.ToString()
                 };
             }
-            var sw = new Stopwatch();
-            sw.Start(); ;
-            _statisticThread = new Thread(() => CalculateStatistic());
-            _statisticThread.Start();
             for (int i = 0; i < _requestOptions.ParalelSize; i++)
             {
                 _tasks[i].Start();
             }
-            //Task.WaitAll(_tasks);
             for (int i = 0; i < _requestOptions.ParalelSize; i++)
             {
                 _tasks[i].Join();
             }
-            _statisticThread.Join();
-            stopWatch.Stop();
-            sw.Stop();
-            OnCompleted(new CompletedEventArgs<TOrganizatioRequest, TOrganizationResponse>(_requests.ToList(), stopWatch.Elapsed));
+            _executionSw.Stop();
+            _statisticTimer.Start();
+            var averageRecordCount = _requests.Count(x => x.IsCompleted) / _executionSw.Elapsed.TotalSeconds;
+            OnCompleted(new CompletedEventArgs<TOrganizatioRequest, TOrganizationResponse>(_requests.ToList(), _executionSw.Elapsed, averageRecordCount));
         }
 
         private List<RequestContainer<TOrganizatioRequest, TOrganizationResponse>> TakeRequests(IEnumerable<RequestContainer<TOrganizatioRequest, TOrganizationResponse>> _requests, int? chunkSize = null)
@@ -220,9 +216,8 @@ namespace Cvc.Crm.Operation
 
         private void ExecuteRequests(Func<OrganizationServiceProxy> serviceCreator, CancellationToken cancellationToken)
         {
-            var stopWatch = new Stopwatch();
-            stopWatch.Start();
-            IOrganizationService service = null;
+            var threadSw = Stopwatch.StartNew();
+            IOrganizationService service;
             int reTrycount = 0;
             do
             {
@@ -238,7 +233,7 @@ namespace Cvc.Crm.Operation
             {
                 Console.WriteLine("Service is null");
                 OnErrorOccurs(new ErrorEventArg(new Exception("Service has been still null. Thread is terminated")));
-                OnThreadFinished(new ThreadCompletedEventArg(_tasks.Count(x => (x == null) || (x != null && /*!x.IsCompleted*/x.IsAlive)) - 1, stopWatch.Elapsed, Thread.CurrentThread.Name));
+                OnThreadFinished(new ThreadCompletedEventArg(_tasks.Count(x => (x == null) || (x != null && /*!x.IsCompleted*/x.IsAlive)) - 1, threadSw.Elapsed, Thread.CurrentThread.Name));
                 return;
             }
 
@@ -256,8 +251,8 @@ namespace Cvc.Crm.Operation
                 OnChuckCompleted(new ExecutorEventArg<TOrganizatioRequest, TOrganizationResponse>(requests, _requests.Count(x => !x.IsCompleted), _requests.Count(x => x.IsRunning)));
                 requests = TakeRequests(_requests);
             }
-            stopWatch.Stop();
-            OnThreadFinished(new ThreadCompletedEventArg(_tasks.Count(x => (x == null) || (x != null && /*!x.IsCompleted*/x.IsAlive)) - 1, stopWatch.Elapsed, Thread.CurrentThread.Name));
+            threadSw.Stop();
+            OnThreadFinished(new ThreadCompletedEventArg(_tasks.Count(x => (x == null) || (x != null && /*!x.IsCompleted*/x.IsAlive)) - 1, threadSw.Elapsed, Thread.CurrentThread.Name));
         }
 
         private void ExecuteSingleRequests(IOrganizationService service, CancellationToken cancellationToken, List<RequestContainer<TOrganizatioRequest, TOrganizationResponse>> requests)
@@ -266,7 +261,10 @@ namespace Cvc.Crm.Operation
             {
                 try
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
                     requests[i].Response = (TOrganizationResponse)service.Execute(requests[i].Request);
                     requests[i].IsCompleted = true;
                 }
@@ -303,7 +301,10 @@ namespace Cvc.Crm.Operation
 
             for (int requestInd = 0; requestInd < requests.Count; requestInd += _executeMultipleRequestCount)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
                 multipleExecute.Requests.Clear();
                 multipleExecute.Requests.AddRange(requests.GetRange(requestInd, Math.Min(_executeMultipleRequestCount, requests.Count - requestInd)).Select(x => x.Request).ToArray());
                 try
@@ -353,8 +354,8 @@ namespace Cvc.Crm.Operation
             {
                 Thread.Sleep(_requestOptions.StatisticInverval);
                 var completedRecordCount = _requests.Count(x => x.IsCompleted);
-                var averageRecordCount = completedRecordCount / _stopWatch.Elapsed.TotalSeconds;
-                OnStatisticInfo(new StatisticEventArg(averageRecordCount, _requests.Count - completedRecordCount, completedRecordCount, Math.Round((double)completedRecordCount / _requests.Count, 2) * 100, _stopWatch.Elapsed));
+                var averageRecordCount = completedRecordCount / _executionSw.Elapsed.TotalSeconds;
+                OnStatisticInfo(new StatisticEventArg(averageRecordCount, _requests.Count - completedRecordCount, completedRecordCount, Math.Round((double)completedRecordCount / _requests.Count, 2) * 100, _executionSw.Elapsed));
             }
         }
     }

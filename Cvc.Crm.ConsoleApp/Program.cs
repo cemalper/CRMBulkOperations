@@ -12,22 +12,23 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Cvc.Crm.ConsoleApp
 {
     class Program
     {
+     
         static void Main()
         {
             ServicePointManager.DefaultConnectionLimit = 5000;
             ServicePointManager.MaxServicePointIdleTime = 5000;
-
             var connectionString = ConfigurationManager.ConnectionStrings["CrmConnection"].ConnectionString;
             CrmServiceClient crmSvc = new CrmServiceClient(connectionString);
             var response = crmSvc.OrganizationServiceProxy.Execute(new WhoAmIRequest());
 
-            var requests = Enumerable.Range(1, 10000).Select(x =>
+            var requests = Enumerable.Range(1, 5000).Select(x =>
             {
                 var entity = new Entity("contact");
                 entity["firstname"] = $"First Name {x}";
@@ -40,7 +41,7 @@ namespace Cvc.Crm.ConsoleApp
             Console.ReadKey();
         }
 
-        static void MultipleExecutor<TOrganizatioRequest, TOrganizationResponse>(Func<OrganizationServiceProxy> serviceCreator, List<TOrganizatioRequest> requests, int chunkSize = 80, int threadCount = 32) where TOrganizatioRequest : OrganizationRequest where TOrganizationResponse : OrganizationResponse
+        static void MultipleExecutor<TOrganizatioRequest, TOrganizationResponse>(Func<OrganizationServiceProxy> serviceCreator, List<TOrganizatioRequest> requests, int chunkSize = 80, int threadCount = 16) where TOrganizatioRequest : OrganizationRequest where TOrganizationResponse : OrganizationResponse
         {
             var bulkRequest = new CrmBulkRequestExecutor<TOrganizatioRequest, TOrganizationResponse>(requests, serviceCreator, new RequestOptions { ChuckSize = chunkSize, ParalelSize = threadCount });
             bulkRequest.ChuckCompleted += (obj, arg) =>
@@ -70,9 +71,11 @@ namespace Cvc.Crm.ConsoleApp
             };
             bulkRequest.Completed += (obj, arg) =>
             {
-                Console.WriteLine($"Completed Req:{arg.RequestsContainers.Count} : FailedReq: {arg.RequestsContainers.Count(x => x.IsFailed)}, Time {arg.ElapsedTime.ToString()} Avg: {arg.RequestsContainers.Count / arg.ElapsedTime.TotalSeconds}");
+                Console.WriteLine($"Req Count:{arg.RequestsContainers.Count} : CompletedReq: {arg.RequestsContainers.Count(x => x.IsCompleted)} FailedReq: {arg.RequestsContainers.Count(x => x.IsFailed)}, Time {arg.ElapsedTime.ToString()} Avg: {arg.AverageRequestCount}");
             };
-            bulkRequest.Execute();
+
+            bulkRequest.Execute().Wait();
+            Console.WriteLine("execute canceled");
         }
     }
 }
